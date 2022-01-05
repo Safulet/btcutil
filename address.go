@@ -370,6 +370,10 @@ func (a *AddressScriptHash) EncodeAddress() string {
 	return encodeAddress(a.hash[:], a.netID, a.cksumHasher)
 }
 
+func (a *AddressScriptHash) EncodeAddress2(netID []byte) string {
+	return encodeAddress(a.hash[:], netID, a.cksumHasher)
+}
+
 // ScriptAddress returns the bytes to be included in a txout script to pay
 // to a script hash.  Part of the Address interface.
 func (a *AddressScriptHash) ScriptAddress() []byte {
