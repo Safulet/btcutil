@@ -242,6 +242,7 @@ type Params struct {
 	// Address encoding magics
 	PubKeyHashAddrID        []byte // First n bytes of a P2PKH address
 	ScriptHashAddrID        []byte // First n bytes of a P2SH address
+	ScriptHashAddrID2       []byte // First n bytes of a P2SH address
 	PrivateKeyID            []byte // First n bytes of a WIF private key
 	WitnessPubKeyHashAddrID []byte // First n bytes of a P2WPKH address
 	WitnessScriptHashAddrID []byte // First n bytes of a P2WSH address
@@ -824,6 +825,12 @@ func IsScriptHashAddrID(id []byte, params ...*Params) bool {
 	if len(params) == 0 || params[0] == nil {
 		_, ok := scriptHashAddrIDs[string(id)]
 		return ok
+	}
+
+	// For litecoin, it supports new p2sh address with different prefix.
+	if len(params[0].ScriptHashAddrID2) > 0 &&
+		string(id) == string(params[0].ScriptHashAddrID2[:params[0].AddressMagicLen]) {
+		return true
 	}
 
 	return string(id) == string(params[0].ScriptHashAddrID[:params[0].AddressMagicLen])
