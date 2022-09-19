@@ -9,8 +9,8 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/binance-chain/btcutil"
-	"github.com/binance-chain/btcutil/bloom"
+	"github.com/Safulet/btcutil"
+	"github.com/Safulet/btcutil/bloom"
 	"github.com/martinboehm/btcd/chaincfg/chainhash"
 	"github.com/martinboehm/btcd/wire"
 )

@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/binance-chain/btcutil"
-	"github.com/binance-chain/btcutil/coinset"
+	"github.com/Safulet/btcutil"
+	"github.com/Safulet/btcutil/coinset"
 	"github.com/martinboehm/btcd/chaincfg/chainhash"
 	"github.com/martinboehm/btcd/wire"
 )

@@ -9,11 +9,11 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/binance-chain/btcutil"
-	"github.com/binance-chain/btcutil/chaincfg"
-	"github.com/binance-chain/btcutil/gcs"
-	"github.com/binance-chain/btcutil/gcs/builder"
-	"github.com/binance-chain/btcutil/txscript"
+	"github.com/Safulet/btcutil"
+	"github.com/Safulet/btcutil/chaincfg"
+	"github.com/Safulet/btcutil/gcs"
+	"github.com/Safulet/btcutil/gcs/builder"
+	"github.com/Safulet/btcutil/txscript"
 	"github.com/martinboehm/btcd/chaincfg/chainhash"
 	"github.com/martinboehm/btcd/wire"
 )

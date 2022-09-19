@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/binance-chain/btcutil"
+	"github.com/Safulet/btcutil"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/martinboehm/btcd/chaincfg/chainhash"
 	"github.com/martinboehm/btcd/wire"

@@ -1,4 +1,4 @@
-module github.com/binance-chain/btcutil
+module github.com/Safulet/btcutil
 
 go 1.17
 

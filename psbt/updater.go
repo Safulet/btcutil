@@ -14,7 +14,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 
-	"github.com/binance-chain/btcutil"
+	"github.com/Safulet/btcutil"
 	"github.com/martinboehm/btcd/txscript"
 	"github.com/martinboehm/btcd/wire"
 )

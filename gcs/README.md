@@ -1,11 +1,11 @@
 gcs
 ==========
 
-[![Build Status](http://img.shields.io/travis/binance-chain/btcutil.svg)]
-(https://travis-ci.org/binance-chain/btcutil) [![ISC License]
+[![Build Status](http://img.shields.io/travis/Safulet/btcutil.svg)]
+(https://travis-ci.org/Safulet/btcutil) [![ISC License]
 (http://img.shields.io/badge/license-ISC-blue.svg)](http://copyfree.org)
-[![GoDoc](https://godoc.org/github.com/binance-chain/btcutil/gcs?status.png)]
-(http://godoc.org/github.com/binance-chain/btcutil/gcs)
+[![GoDoc](https://godoc.org/github.com/Safulet/btcutil/gcs?status.png)]
+(http://godoc.org/github.com/Safulet/btcutil/gcs)
 
 Package gcs provides an API for building and using a Golomb-coded set filter
 similar to that described [here](http://giovanni.bajo.it/post/47119962313/golomb-coded-sets-smaller-than-bloom-filters).
@@ -15,7 +15,7 @@ A comprehensive suite of tests is provided to ensure proper functionality.
 ## Installation and Updating
 
 ```bash
-$ go get -u github.com/binance-chain/btcutil/gcs
+$ go get -u github.com/Safulet/btcutil/gcs
 ```
 
 ## License

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/binance-chain/btcutil/base58"
+	"github.com/Safulet/btcutil/base58"
 	"github.com/martinboehm/btcd/chaincfg/chainhash"
 	"github.com/martinboehm/btcd/wire"
 )

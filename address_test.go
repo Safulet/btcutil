@@ -14,8 +14,8 @@ import (
 
 	"github.com/martinboehm/btcd/wire"
 
-	"github.com/binance-chain/btcutil"
-	"github.com/binance-chain/btcutil/chaincfg"
+	"github.com/Safulet/btcutil"
+	"github.com/Safulet/btcutil/chaincfg"
 	"golang.org/x/crypto/ripemd160"
 )
 

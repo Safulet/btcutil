@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/binance-chain/btcutil/gcs"
-	"github.com/binance-chain/btcutil/txscript"
+	"github.com/Safulet/btcutil/gcs"
+	"github.com/Safulet/btcutil/txscript"
 	"github.com/martinboehm/btcd/chaincfg/chainhash"
 	"github.com/martinboehm/btcd/wire"
 )

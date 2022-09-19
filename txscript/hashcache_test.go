@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/binance-chain/btcutil/chaincfg"
+	"github.com/Safulet/btcutil/chaincfg"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/martinboehm/btcd/wire"
 )

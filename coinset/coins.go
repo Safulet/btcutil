@@ -9,7 +9,7 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/binance-chain/btcutil"
+	"github.com/Safulet/btcutil"
 	"github.com/martinboehm/btcd/chaincfg/chainhash"
 	"github.com/martinboehm/btcd/wire"
 )

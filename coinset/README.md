@@ -1,9 +1,9 @@
 coinset
 =======
 
-[![Build Status](http://img.shields.io/travis/binance-chain/btcutil.svg)](https://travis-ci.org/binance-chain/btcutil)
+[![Build Status](http://img.shields.io/travis/Safulet/btcutil.svg)](https://travis-ci.org/Safulet/btcutil)
 [![ISC License](http://img.shields.io/badge/license-ISC-blue.svg)](http://copyfree.org)
-[![GoDoc](http://img.shields.io/badge/godoc-reference-blue.svg)](http://godoc.org/github.com/binance-chain/btcutil/coinset)
+[![GoDoc](http://img.shields.io/badge/godoc-reference-blue.svg)](http://godoc.org/github.com/Safulet/btcutil/coinset)
 
 Package coinset provides bitcoin-specific convenience functions for selecting
 from and managing sets of unspent transaction outpoints (UTXOs).
@@ -16,7 +16,7 @@ report.
 ## Installation and Updating
 
 ```bash
-$ go get -u github.com/binance-chain/btcutil/coinset
+$ go get -u github.com/Safulet/btcutil/coinset
 ```
 
 ## Usage
