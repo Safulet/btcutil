@@ -22,7 +22,9 @@ concurrency:
 
 jobs:
   gitleaks:
-    runs-on: ubuntu-latest
+    # A fork's PR never runs on a self-hosted runner: it gets a GitHub-hosted one, so the check
+    # still reports (a skipped job would leave a required check pending).
+    runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'ubuntu-latest' || 'ubuntu-latest' }}
     # A hung download or scan must not hold a self-hosted runner.
     timeout-minutes: 15
     steps:
@@ -81,7 +83,9 @@ jobs:
           if [ -n "$changed" ]; then
             echo "::warning::this PR changes the secret scan or its allowances; review them: $changed"
           fi
-          if git diff "$mb" "$HEAD_SHA" | grep -q '^+.*gitleaks:allow'; then
+          # Docs and the scan's own files only mention gitleaks:allow; an allowance in code is what counts.
+          if git diff "$mb" "$HEAD_SHA" -- . ':(exclude)*.md' ':(exclude).gitleaks.toml' ':(exclude).github/workflows/gitleaks.yml' |
+              grep -q '^+.*gitleaks:allow'; then
             echo "::warning::this PR adds a gitleaks:allow comment; review what it allows"
           fi
           # --text: scan files marked binary or -diff too. --diff-merges=remerge: a merge commit shows
