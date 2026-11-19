@@ -30,7 +30,7 @@ secretGroup = 1
 keywords = ["password","passwd","pwd"]
 [[rules.allowlists]]
 regexTarget = "secret"
-regexes = ['''(?i)^(password|passwd|changeme|example|placeholder|xxxxxx+|\*+|your.*|none|null|true|false|string)$''']
+regexes = ['''(?i)^(password|passwd|changeme|example|placeholder|xxxxxx+|\*+|your[_-]?[a-z_-]*(here|password|pass|pwd)|none|null|true|false|string)$''']
 
 [[rules]]
 id = "cb-wea-difft-credential"
