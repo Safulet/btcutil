@@ -48,6 +48,8 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -eu
+          # Actions runs bash: a failing command inside a pipeline fails the step too.
+          if [ -n "${BASH_VERSION:-}" ]; then set -o pipefail; fi
           # The scan step of the gitleaks PR check (CB-3886). render-ci copies it into the workflow;
           # scripts/test-gitleaks-ci-scan.sh runs it against fake gitleaks binaries.
           # Needs BASE_SHA, HEAD_SHA, RUNNER_TEMP (holding the gitleaks binary), and the repo checkout as $PWD.
@@ -68,8 +70,8 @@ jobs:
           if [ "$count" -eq 0 ]; then echo "no commits to scan: $HEAD_SHA is already on the base branch"; exit 0; fi
           # gitleaks counts the commits git shows a diff for (a clean merge shows none under remerge), so
           # the expected count comes from the same git log it runs.
-          want=$(git log -p --text --diff-merges=remerge --format='CB-COMMIT %H' "$BASE_SHA..$HEAD_SHA" |
-            awk '/^CB-COMMIT / { c = $2; next } /^diff --git / { if (!(c in seen)) { seen[c] = 1; n++ } } END { print n + 0 }')
+          git log -p --text --diff-merges=remerge --format='CB-COMMIT %H' "$BASE_SHA..$HEAD_SHA" >"$RUNNER_TEMP/pr.log"
+          want=$(awk '/^CB-COMMIT / { c = $2; next } /^diff --git / { if (!(c in seen)) { seen[c] = 1; n++ } } END { print n + 0 }' "$RUNNER_TEMP/pr.log")
           # The ruleset comes from the base branch, so a PR cannot loosen it for itself. Only the PR
           # that first adds .gitleaks.toml (none on the base commit, which exists) uses its own copy.
           if git cat-file -e "$BASE_SHA:.gitleaks.toml" 2>/dev/null; then
@@ -85,13 +87,15 @@ jobs:
           # is handled, in the open. The workflow file runs from the PR too; branch protection and
           # review are what keep it honest. Compared with the merge base: only the PR's own changes.
           mb=$(git merge-base "$BASE_SHA" "$HEAD_SHA") || mb=$BASE_SHA   # unrelated histories: compare with the base
-          changed=$(git diff --name-only "$mb" "$HEAD_SHA" -- .gitleaksignore .gitleaks.toml .github/workflows/gitleaks.yml | tr '\n' ' ')
+          git diff --name-only "$mb" "$HEAD_SHA" -- .gitleaksignore .gitleaks.toml .github/workflows/gitleaks.yml >"$RUNNER_TEMP/changed.txt"
+          changed=$(tr '\n' ' ' <"$RUNNER_TEMP/changed.txt")
           if [ -n "$changed" ]; then
             echo "::warning::this PR changes the secret scan or its allowances; review them: $changed"
           fi
-          # Docs and the scan's own files only mention gitleaks:allow; an allowance in code is what counts.
-          if git diff "$mb" "$HEAD_SHA" -- . ':(exclude)*.md' ':(exclude).gitleaks.toml' ':(exclude).github/workflows/gitleaks.yml' |
-              grep -q '^+.*gitleaks:allow'; then
+          # The scan's own files and docs under docs/ only mention gitleaks:allow; anywhere else it is an
+          # allowance. Written to a file first: grep -q stopping early must not fail the pipeline.
+          git diff "$mb" "$HEAD_SHA" -- . ':(exclude)docs/**' ':(exclude).gitleaks.toml' ':(exclude).github/workflows/gitleaks.yml' >"$RUNNER_TEMP/pr.diff"
+          if grep -q '^+.*gitleaks:allow' "$RUNNER_TEMP/pr.diff"; then
             echo "::warning::this PR adds a gitleaks:allow comment; review what it allows"
           fi
           # --text: scan files marked binary or -diff too. --diff-merges=remerge: a merge commit shows
@@ -116,7 +120,7 @@ jobs:
             why=
             if grep -qE '(^|[[:space:]])(ERR|FTL)[[:space:]]' "$RUNNER_TEMP/gitleaks.log"; then why="gitleaks logged an error"
             elif ! grep -qE "(^|[^0-9])$want commits scanned" "$RUNNER_TEMP/gitleaks.log"; then why="gitleaks did not report scanning all $want commits"
-            elif ! head -c 1 "$RUNNER_TEMP/report.json" 2>/dev/null | grep -q '\['; then why="gitleaks wrote no report"
+            elif ! tr -d ' \t\r\n' <"$RUNNER_TEMP/report.json" 2>/dev/null | grep -q '^\[.*\]$'; then why="gitleaks wrote no report"
             fi
             if [ -n "$why" ]; then
               echo "::error::gitleaks did not scan this PR's commits: $why (see the log above)"; exit 1
