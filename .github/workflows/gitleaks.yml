@@ -35,8 +35,10 @@ jobs:
       - name: Install gitleaks v8.30.1 (pinned SHA-256)
         run: |
           set -eu
+          # The pinned binary is linux/x64: say so plainly on any other runner.
+          [ "$(uname -s)-$(uname -m)" = Linux-x86_64 ] || { echo "::error::this check needs a linux x86_64 runner, not $(uname -s)-$(uname -m)"; exit 1; }
           cd "$RUNNER_TEMP"
-          curl -sSfL --proto '=https' --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 120 -o gitleaks.tar.gz \
+          curl -sSfL --proto '=https' --proto-redir '=https' --retry 3 --retry-delay 2 --connect-timeout 10 --max-time 120 -o gitleaks.tar.gz \
             https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
           tar -xzf gitleaks.tar.gz gitleaks
@@ -64,6 +66,10 @@ jobs:
           # The commits this PR adds. None (the head is already on the base branch): nothing to scan.
           count=$(git rev-list --count "$BASE_SHA..$HEAD_SHA")
           if [ "$count" -eq 0 ]; then echo "no commits to scan: $HEAD_SHA is already on the base branch"; exit 0; fi
+          # gitleaks counts the commits git shows a diff for (a clean merge shows none under remerge), so
+          # the expected count comes from the same git log it runs.
+          want=$(git log -p --text --diff-merges=remerge --format='CB-COMMIT %H' "$BASE_SHA..$HEAD_SHA" |
+            awk '/^CB-COMMIT / { c = $2; next } /^diff --git / { if (!(c in seen)) { seen[c] = 1; n++ } } END { print n + 0 }')
           # The ruleset comes from the base branch, so a PR cannot loosen it for itself. Only the PR
           # that first adds .gitleaks.toml (none on the base commit, which exists) uses its own copy.
           if git cat-file -e "$BASE_SHA:.gitleaks.toml" 2>/dev/null; then
@@ -78,7 +84,7 @@ jobs:
           # (.gitleaksignore, gitleaks:allow) come from the PR on purpose: that is how a false positive
           # is handled, in the open. The workflow file runs from the PR too; branch protection and
           # review are what keep it honest. Compared with the merge base: only the PR's own changes.
-          mb=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
+          mb=$(git merge-base "$BASE_SHA" "$HEAD_SHA") || mb=$BASE_SHA   # unrelated histories: compare with the base
           changed=$(git diff --name-only "$mb" "$HEAD_SHA" -- .gitleaksignore .gitleaks.toml .github/workflows/gitleaks.yml | tr '\n' ' ')
           if [ -n "$changed" ]; then
             echo "::warning::this PR changes the secret scan or its allowances; review them: $changed"
@@ -93,17 +99,27 @@ jobs:
           # what an already-merged base branch brings in; the PR's other commits are scanned anyway.
           set +e
           "$RUNNER_TEMP/gitleaks" git --redact --no-banner -v -c "$RUNNER_TEMP/gitleaks.toml" \
+            --report-format json --report-path "$RUNNER_TEMP/report.json" \
             --log-opts="--text --diff-merges=remerge $BASE_SHA..$HEAD_SHA" . 2>"$RUNNER_TEMP/gitleaks.err"
           rc=$?
           set -e
           cat "$RUNNER_TEMP/gitleaks.err" >&2
-          # gitleaks exits 0 when git fails or writes to stderr: treat that as a failure. Its log is
-          # coloured even off a terminal, so drop the colour codes (ESC built with printf, which any
-          # sed accepts) and match the level field. The PR has commits, so "0 commits scanned" means
-          # the scan saw nothing ("0 commits" alone would also match 10, 20, 100 ...).
+          # gitleaks exits 0 when git fails or writes to stderr, so a pass needs proof the scan ran: no
+          # ERR/FTL line, the log naming exactly the number of commits git shows a diff for, and a JSON
+          # report. Anything else
+          # fails, including a log format this step does not know (say, after a gitleaks upgrade). The
+          # log is coloured even off a terminal: drop the colour codes (ESC from printf, which any sed
+          # accepts) before matching.
           esc=$(printf '\033')
           sed "s/${esc}\[[0-9;]*m//g" "$RUNNER_TEMP/gitleaks.err" >"$RUNNER_TEMP/gitleaks.log"
-          if [ "$rc" -eq 0 ] && grep -qE '(^|[[:space:]])(ERR|FTL)[[:space:]]|(^|[^0-9])0 commits scanned' "$RUNNER_TEMP/gitleaks.log"; then
-            echo "::error::gitleaks did not scan this PR's commits (see the log above)"; exit 1
+          if [ "$rc" -eq 0 ]; then
+            why=
+            if grep -qE '(^|[[:space:]])(ERR|FTL)[[:space:]]' "$RUNNER_TEMP/gitleaks.log"; then why="gitleaks logged an error"
+            elif ! grep -qE "(^|[^0-9])$want commits scanned" "$RUNNER_TEMP/gitleaks.log"; then why="gitleaks did not report scanning all $want commits"
+            elif ! head -c 1 "$RUNNER_TEMP/report.json" 2>/dev/null | grep -q '\['; then why="gitleaks wrote no report"
+            fi
+            if [ -n "$why" ]; then
+              echo "::error::gitleaks did not scan this PR's commits: $why (see the log above)"; exit 1
+            fi
           fi
           exit "$rc"

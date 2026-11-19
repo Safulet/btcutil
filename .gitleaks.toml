@@ -38,6 +38,10 @@ description = "Wea/Difft key, secret or webhook with a literal value"
 regex = '''(?i)["']?(?:wea|difft)[a-z0-9_.-]*(?:key|secret|token|webhook[a-z]*|appid)["']?\s*[:=]\s*["']([^"'\s$<>{}]{6,})["']'''
 secretGroup = 1
 keywords = ["wea","difft"]
+# Whole-value placeholders only (README examples such as "your-app-secret").
+[[rules.allowlists]]
+regexTarget = "secret"
+regexes = ['''(?i)^(changeme|example|placeholder|xxxxxx+|\*+|your[_-]?[a-z_-]*(here|key|secret|token)|none|null|true|false|string)$''']
 
 [[rules]]
 id = "cb-wallet-key"
