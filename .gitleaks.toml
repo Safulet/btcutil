@@ -42,7 +42,9 @@ keywords = ["wea","difft"]
 [[rules]]
 id = "cb-wallet-key"
 description = "wallet private key / seed / mnemonic / keypair under a key-like name"
-regex = '''(?i)["']?[a-z0-9_.-]*(?:priv(?:ate)?[_-]?key|secret[_-]?key|seed|mnemonic|keypair|signer[_-]?key|wif)[a-z0-9_.-]*["']?\s*[:=]\s*["'\[]?((?:0x)?[0-9a-fA-F]{64}|[1-9A-HJ-NP-Za-km-z]{50,90}|(?:\d{1,3}\s*,\s*){31,}\d{1,3}|(?:[a-z]{3,8}\s+){11,23}[a-z]{3,8})'''
+# Only the name is case-insensitive: a global (?i) would let the base58 class take O, I and l.
+# S[A-Z2-7]{55} is a Stellar secret seed (base32), which the base58 class does not cover.
+regex = '''(?i:["']?[a-z0-9_.-]*(?:priv(?:ate)?[_-]?key|secret[_-]?key|seed|mnemonic|keypair|signer[_-]?key|wif)[a-z0-9_.-]*["']?)\s*[:=]\s*["'\[]?((?:0x)?[0-9a-fA-F]{64}|[1-9A-HJ-NP-Za-km-z]{50,90}|S[A-Z2-7]{55}|(?:\d{1,3}\s*,\s*){31,}\d{1,3}|(?:[a-z]{3,8}\s+){11,23}[a-z]{3,8})'''
 secretGroup = 1
 keywords = ["priv","secret","seed","mnemonic","keypair","signer","wif"]
 
