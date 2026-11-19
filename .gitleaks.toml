@@ -48,8 +48,8 @@ keywords = ["priv","secret","seed","mnemonic","keypair","signer","wif"]
 
 [[rules]]
 id = "cb-url-userinfo-password"
-description = "password in URL userinfo (scheme://user:pass@host)"
-regex = '''[a-zA-Z][a-zA-Z0-9+.-]{1,20}://[^/\s:@"'<>]{1,64}:([^@\s/"'<>]{3,128})@[A-Za-z0-9.-]'''
+description = "password in URL userinfo (scheme://user:pass@host, or scheme://:pass@host)"
+regex = '''[a-zA-Z][a-zA-Z0-9+.-]{1,20}://[^/\s:@"'<>]{0,64}:([^@\s/"'<>]{3,128})@[A-Za-z0-9.-]'''
 secretGroup = 1
 keywords = ["://"]
 [[rules.allowlists]]
@@ -71,5 +71,6 @@ secretGroup = 1
 keywords = ["key=","token=","auth=","secret=","password=","pwd=","sig=","signature="]
 [[rules.allowlists]]
 regexTarget = "secret"
-regexes = ['''(?i)(\$\{|%7B|<|\{\{|your|example|xxxx|placeholder)''']
+# Whole-value placeholders only: a real value that merely contains "example" is still a finding.
+regexes = ['''(?i)^(\$\{.*|%7B.*|<.*|\{\{.*|(your|example|placeholder)[a-z_-]*|x{4,}[a-z_-]*)$''']
 
