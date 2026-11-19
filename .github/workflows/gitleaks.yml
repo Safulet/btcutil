@@ -69,7 +69,8 @@ jobs:
           count=$(git rev-list --count "$BASE_SHA..$HEAD_SHA")
           if [ "$count" -eq 0 ]; then echo "no commits to scan: $HEAD_SHA is already on the base branch"; exit 0; fi
           # gitleaks counts the commits git shows a diff for (a clean merge shows none under remerge), so
-          # the expected count comes from the same git log it runs.
+          # the expected count comes from the same git log it runs. --format prints only the marker line,
+          # never the message, so a message cannot fake a marker or a diff header.
           git log -p --text --diff-merges=remerge --format='CB-COMMIT %H' "$BASE_SHA..$HEAD_SHA" >"$RUNNER_TEMP/pr.log"
           want=$(awk '/^CB-COMMIT / { c = $2; next } /^diff --git / { if (!(c in seen)) { seen[c] = 1; n++ } } END { print n + 0 }' "$RUNNER_TEMP/pr.log")
           # The ruleset comes from the base branch, so a PR cannot loosen it for itself. Only the PR
@@ -120,7 +121,8 @@ jobs:
             why=
             if grep -qE '(^|[[:space:]])(ERR|FTL)[[:space:]]' "$RUNNER_TEMP/gitleaks.log"; then why="gitleaks logged an error"
             elif ! grep -qE "(^|[^0-9])$want commits scanned" "$RUNNER_TEMP/gitleaks.log"; then why="gitleaks did not report scanning all $want commits"
-            elif ! tr -d ' \t\r\n' <"$RUNNER_TEMP/report.json" 2>/dev/null | grep -q '^\[.*\]$'; then why="gitleaks wrote no report"
+            elif ! { tr -d ' \t\r\n' <"$RUNNER_TEMP/report.json" >"$RUNNER_TEMP/report.min"; } 2>/dev/null ||
+                 ! grep -q '^\[.*\]$' "$RUNNER_TEMP/report.min"; then why="gitleaks wrote no report"
             fi
             if [ -n "$why" ]; then
               echo "::error::gitleaks did not scan this PR's commits: $why (see the log above)"; exit 1
