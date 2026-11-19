@@ -1,6 +1,6 @@
 module github.com/Safulet/btcutil
 
-go 1.17
+go 1.26.0
 
 require (
 	github.com/Groestlcoin/go-groestl-hash v0.0.0-20181012171753-790653ac190c
@@ -10,5 +10,7 @@ require (
 	github.com/dchest/blake256 v1.0.0
 	github.com/kkdai/bstream v0.0.0-20171226095907-f71540b9dfdc
 	github.com/martinboehm/btcd v0.0.0-20211010165247-d1f65b0f30fa
-	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
+	golang.org/x/crypto v0.59.0
 )
+
+require github.com/martinboehm/btcutil v0.0.0-20210922221517-e83b0c752949 // indirect
