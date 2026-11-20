@@ -22,10 +22,10 @@ concurrency:
 
 jobs:
   gitleaks:
-    # A fork's PR never runs on a self-hosted runner: it gets a GitHub-hosted one, so the check
-    # still reports (a skipped job would leave a required check pending).
-    runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'ubuntu-latest' || 'ubuntu-latest' }}
-    # A hung download or scan must not hold a self-hosted runner.
+    # A GitHub-hosted runner for every PR: the workflow file runs from the PR, so it must never run
+    # on our own machines, and the scan needs nothing they have.
+    runs-on: ubuntu-latest
+    # A hung download or scan must not hold a runner for six hours.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -44,15 +44,16 @@ jobs:
           tar -xzf gitleaks.tar.gz gitleaks
       - name: Scan the commits of this PR
         env:
+          GITLEAKS_VERSION: 8.30.1
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -eu
           # Actions runs bash: a failing command inside a pipeline fails the step too.
           if [ -n "${BASH_VERSION:-}" ]; then set -o pipefail; fi
-          # pr.log / pr.diff hold the PR's changes in clear: remove every file this step writes when it ends.
-          # (A job killed outright skips this; the runner empties RUNNER_TEMP before the next job starts.)
-          trap 'rm -f "$RUNNER_TEMP/pr.log" "$RUNNER_TEMP/pr.diff" "$RUNNER_TEMP/report.json" "$RUNNER_TEMP/report.min" "$RUNNER_TEMP/changed.txt" "$RUNNER_TEMP/gitleaks.err" "$RUNNER_TEMP/gitleaks.log"' EXIT
+          # The PR's own changes are only streamed, never written; what this step does write (the redacted
+          # report and log) is removed when it ends.
+          trap 'rm -f "$RUNNER_TEMP/report.json" "$RUNNER_TEMP/report.min" "$RUNNER_TEMP/changed.txt" "$RUNNER_TEMP/gitleaks.err" "$RUNNER_TEMP/gitleaks.log"' EXIT
           # The scan step of the gitleaks PR check (CB-3886). render-ci copies it into the workflow;
           # scripts/test-gitleaks-ci-scan.sh runs it against fake gitleaks binaries.
           # Needs BASE_SHA, HEAD_SHA, RUNNER_TEMP (holding the gitleaks binary), and the repo checkout as $PWD.
@@ -68,14 +69,21 @@ jobs:
           if [ -z "$gmaj" ] || [ -z "$gmin" ] || [ "$gmaj" -lt 2 ] || { [ "$gmaj" -eq 2 ] && [ "$gmin" -lt 36 ]; }; then
             echo "::error::this check needs git 2.36 or later; the runner has '$(git version)'"; exit 1
           fi
+          # The log checks below read this version's wording; a different binary is an error, not a guess.
+          gv=$("$RUNNER_TEMP/gitleaks" version 2>/dev/null || true)
+          case "$gv" in
+            "${GITLEAKS_VERSION:-}"|v"${GITLEAKS_VERSION:-}") ;;
+            *) if [ -n "${GITLEAKS_VERSION:-}" ]; then echo "::error::expected gitleaks ${GITLEAKS_VERSION}, found '${gv}'"; exit 1; fi ;;
+          esac
           # The commits this PR adds. None (the head is already on the base branch): nothing to scan.
           count=$(git rev-list --count "$BASE_SHA..$HEAD_SHA")
           if [ "$count" -eq 0 ]; then echo "no commits to scan: $HEAD_SHA is already on the base branch"; exit 0; fi
           # gitleaks counts the commits git shows a diff for (a clean merge shows none under remerge), so
           # the expected count comes from the same git log it runs. --format prints only the marker line,
           # never the message, so a message cannot fake a marker or a diff header.
-          git log -p --text --diff-merges=remerge --format='CB-COMMIT %H' "$BASE_SHA..$HEAD_SHA" >"$RUNNER_TEMP/pr.log"
-          want=$(awk '/^CB-COMMIT / { c = $2; next } /^diff --git / { if (!(c in seen)) { seen[c] = 1; n++ } } END { print n + 0 }' "$RUNNER_TEMP/pr.log")
+          # Streamed, never written: awk reads to the end, so pipefail sees git's own exit status.
+          want=$(git log -p --text --diff-merges=remerge --format='CB-COMMIT %H' "$BASE_SHA..$HEAD_SHA" |
+            awk '/^CB-COMMIT / { c = $2; next } /^diff --git / { if (!(c in seen)) { seen[c] = 1; n++ } } END { print n + 0 }')
           # The ruleset comes from the base branch, so a PR cannot loosen it for itself. Only the PR
           # that first adds .gitleaks.toml (none on the base commit, which exists) uses its own copy.
           if git cat-file -e "$BASE_SHA:.gitleaks.toml" 2>/dev/null; then
@@ -97,10 +105,11 @@ jobs:
             echo "::warning::this PR changes the secret scan or its allowances; review them: $changed"
           fi
           # Only the scan's own files mention gitleaks:allow without allowing anything; anywhere else,
-          # docs included, it is an allowance. --text: gitleaks scans binary files too. Written to a file
-          # first: grep -q stopping early must not fail the pipeline.
-          git diff --text "$mb" "$HEAD_SHA" -- . ':(exclude).gitleaks.toml' ':(exclude).github/workflows/gitleaks.yml' >"$RUNNER_TEMP/pr.diff"
-          if grep -q '^+.*gitleaks:allow' "$RUNNER_TEMP/pr.diff"; then
+          # docs included, it is an allowance. --text: gitleaks scans binary files too. Streamed into a
+          # count (awk reads to the end, unlike grep -q, so pipefail sees git's own exit status).
+          allows=$(git diff --text "$mb" "$HEAD_SHA" -- . ':(exclude).gitleaks.toml' ':(exclude).github/workflows/gitleaks.yml' |
+            awk '/^\+.*gitleaks:allow/ { n++ } END { print n + 0 }')
+          if [ "$allows" -gt 0 ]; then
             echo "::warning::this PR adds a gitleaks:allow comment; review what it allows"
           fi
           # --text: scan files marked binary or -diff too. --diff-merges=remerge: a merge commit shows
@@ -126,7 +135,7 @@ jobs:
             if grep -qE '(^|[[:space:]])(ERR|FTL)[[:space:]]' "$RUNNER_TEMP/gitleaks.log"; then why="gitleaks logged an error"
             elif ! grep -qE "(^|[^0-9])$want commits scanned" "$RUNNER_TEMP/gitleaks.log"; then
               got=$(awk 'match($0, /[0-9]+ commits scanned/) { print substr($0, RSTART, RLENGTH - 16); exit }' "$RUNNER_TEMP/gitleaks.log")
-              why="gitleaks reported ${got:-no count of} commits scanned, git shows a diff for $want of the PR's $count"
+              why="gitleaks reported ${got:-no count of} commits scanned, git shows a diff for $want of the PR's $count (if gitleaks was upgraded, its log wording may have changed: see scripts/githooks/gitleaks-ci-scan.sh)"
             elif ! { tr -d ' \t\r\n' <"$RUNNER_TEMP/report.json" >"$RUNNER_TEMP/report.min"; } 2>/dev/null ||
                  ! grep -q '^\[.*\]$' "$RUNNER_TEMP/report.min"; then why="gitleaks wrote no report"
             fi

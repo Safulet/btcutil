@@ -76,7 +76,7 @@ regexes = ['''(?i)^((your|example|placeholder)[a-z_-]*|x{4,}[a-z_-]*)$''']
 [[rules]]
 id = "cb-url-query-key"
 description = "credential in URL query parameter"
-regex = '''(?i)[?&](?:api[_-]?key|apikey|key|token|access[_-]?token|auth|auth[_-]?token|secret|client[_-]?secret|password|pwd|sig|signature|x-api-key)=([A-Za-z0-9_\-.~%+/]{12,})'''
+regex = '''(?i)[?&](?:api[_-]?key|apikey|token|access[_-]?token|auth|auth[_-]?token|secret|client[_-]?secret|password|pwd|sig|signature|x-api-key)=([A-Za-z0-9_\-.~%+/]{12,})'''
 secretGroup = 1
 keywords = ["key=","token=","auth=","secret=","password=","pwd=","sig=","signature="]
 [[rules.allowlists]]
