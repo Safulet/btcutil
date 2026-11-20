@@ -50,6 +50,8 @@ jobs:
           set -eu
           # Actions runs bash: a failing command inside a pipeline fails the step too.
           if [ -n "${BASH_VERSION:-}" ]; then set -o pipefail; fi
+          # pr.log / pr.diff hold the PR's changes in clear: never leave them on a runner.
+          trap 'rm -f "$RUNNER_TEMP/pr.log" "$RUNNER_TEMP/pr.diff" "$RUNNER_TEMP/report.json" "$RUNNER_TEMP/report.min"' EXIT
           # The scan step of the gitleaks PR check (CB-3886). render-ci copies it into the workflow;
           # scripts/test-gitleaks-ci-scan.sh runs it against fake gitleaks binaries.
           # Needs BASE_SHA, HEAD_SHA, RUNNER_TEMP (holding the gitleaks binary), and the repo checkout as $PWD.
@@ -61,7 +63,7 @@ jobs:
           done
           # --diff-merges=remerge needs git 2.36.
           gmaj=$(git version | sed -n 's/^git version \([0-9]*\)\..*/\1/p')
-          gmin=$(git version | sed -n 's/^git version [0-9]*\.\([0-9]*\).*/\1/p')
+          gmin=$(git version | sed -n 's/^git version [0-9]*\.\([0-9]*\).*/\1/p')   # "2.36" and "2.36.1" both read 36
           if [ -z "$gmaj" ] || [ -z "$gmin" ] || [ "$gmaj" -lt 2 ] || { [ "$gmaj" -eq 2 ] && [ "$gmin" -lt 36 ]; }; then
             echo "::error::this check needs git 2.36 or later; the runner has '$(git version)'"; exit 1
           fi
@@ -93,9 +95,10 @@ jobs:
           if [ -n "$changed" ]; then
             echo "::warning::this PR changes the secret scan or its allowances; review them: $changed"
           fi
-          # The scan's own files and docs under docs/ only mention gitleaks:allow; anywhere else it is an
-          # allowance. Written to a file first: grep -q stopping early must not fail the pipeline.
-          git diff "$mb" "$HEAD_SHA" -- . ':(exclude)docs/**' ':(exclude).gitleaks.toml' ':(exclude).github/workflows/gitleaks.yml' >"$RUNNER_TEMP/pr.diff"
+          # Only the scan's own files mention gitleaks:allow without allowing anything; anywhere else,
+          # docs included, it is an allowance. --text: gitleaks scans binary files too. Written to a file
+          # first: grep -q stopping early must not fail the pipeline.
+          git diff --text "$mb" "$HEAD_SHA" -- . ':(exclude).gitleaks.toml' ':(exclude).github/workflows/gitleaks.yml' >"$RUNNER_TEMP/pr.diff"
           if grep -q '^+.*gitleaks:allow' "$RUNNER_TEMP/pr.diff"; then
             echo "::warning::this PR adds a gitleaks:allow comment; review what it allows"
           fi
@@ -120,7 +123,9 @@ jobs:
           if [ "$rc" -eq 0 ]; then
             why=
             if grep -qE '(^|[[:space:]])(ERR|FTL)[[:space:]]' "$RUNNER_TEMP/gitleaks.log"; then why="gitleaks logged an error"
-            elif ! grep -qE "(^|[^0-9])$want commits scanned" "$RUNNER_TEMP/gitleaks.log"; then why="gitleaks did not report scanning all $want commits"
+            elif ! grep -qE "(^|[^0-9])$want commits scanned" "$RUNNER_TEMP/gitleaks.log"; then
+              got=$(sed -n 's/.*[^0-9]\([0-9][0-9]*\) commits scanned.*/\1/p' "$RUNNER_TEMP/gitleaks.log" | head -n 1)
+              why="gitleaks reported ${got:-no count of} commits scanned, git shows a diff for $want of the PR's $count"
             elif ! { tr -d ' \t\r\n' <"$RUNNER_TEMP/report.json" >"$RUNNER_TEMP/report.min"; } 2>/dev/null ||
                  ! grep -q '^\[.*\]$' "$RUNNER_TEMP/report.min"; then why="gitleaks wrote no report"
             fi
